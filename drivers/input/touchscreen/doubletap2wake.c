@@ -110,7 +110,7 @@ static void doubletap2wake_reset(void) {
 	x_pre = 0;
 	y_pre = 0;
 #if DT2W_DEBUG
-	pr_info("sweep2wake_reset called!\n");
+	pr_info("doubletap2wake_reset called!\n");
 #endif
 
 }
@@ -166,9 +166,10 @@ static void detect_doubletap2wake(int x, int y, bool st)
 #endif
 	if ((single_touch) && (dt2w_switch > 0) && (exec_count) && (touch_cnt)) {
 		touch_cnt = false;
-		if (touch_nr == 0) {
+		if (touch_nr == 0 || touch_nr == 1)  //modified for taoshan
+                 {
 			new_touch(x, y);
-		} else if (touch_nr == 1) {
+		} else if (touch_nr == 2) {
 			if ((calc_feather(x, x_pre) < DT2W_FEATHER) &&
 			    (calc_feather(y, y_pre) < DT2W_FEATHER) &&
 			    ((ktime_to_ms(ktime_get())-tap_time_pre) < DT2W_TIME))
@@ -181,7 +182,8 @@ static void detect_doubletap2wake(int x, int y, bool st)
 			doubletap2wake_reset();
 			new_touch(x, y);
 		}
-		if ((touch_nr > 1)) {
+		if ((touch_nr > 2))   //modified for taoshan 
+                {
 			pr_info(LOGTAG"ON\n");
 			exec_count = false;
 			doubletap2wake_pwrtrigger();
