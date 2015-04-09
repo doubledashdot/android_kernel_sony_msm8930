@@ -21,6 +21,14 @@
 #include "mipi_samsung.h"
 #include "mdp4.h"
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+#include <linux/input/sweep2wake.h>
+#endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
+#endif
 
 static struct mipi_dsi_panel_platform_data *mipi_samsung_pdata;
 
@@ -255,6 +263,15 @@ static int mipi_samsung_lcd_on(struct platform_device *pdev)
 
 	pr_err("%s: MIPI init cmd end\n",__func__);
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+	s2w_scr_suspended = false;
+#endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	dt2w_scr_suspended = false;
+#endif
+#endif
+
 	return 0;
 }
 
@@ -285,6 +302,15 @@ static int mipi_samsung_lcd_off(struct platform_device *pdev)
 	    && (wled_trigger_initialized)) {
 		led_trigger_event(bkl_led_trigger, 0);
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+	s2w_scr_suspended = true;
+#endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	dt2w_scr_suspended = true;
+#endif
+#endif
 
 	return 0;
 }
@@ -419,3 +445,4 @@ static int mipi_samsung_lcd_init(void)
 
 	return platform_driver_register(&this_driver);
 }
+

@@ -44,6 +44,15 @@
 #include <linux/module.h>
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+#include <linux/input/sweep2wake.h>
+#endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/input/doubletap2wake.h>
+#endif
+#endif
+
 /* helpers */
 #define GET_NUM_TOUCHES(x)          ((x) & 0x0F)
 #define IS_LARGE_AREA(x)            (((x) & 0x10) >> 4)
@@ -4246,6 +4255,19 @@ int cyttsp_resume(void *handle)
 {
 	struct cyttsp *ts = handle;
 	int retval = 0;
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#if defined(CONFIG_TOUCHSCREEN_SWEEP2WAKE) || defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
+	bool prevent_sleep = false;
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SWEEP2WAKE)
+	prevent_sleep = (s2w_switch > 0) && (s2w_s2sonly == 0);
+#endif
+#if defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
+	prevent_sleep = prevent_sleep || (dt2w_switch > 0);
+#endif
+#endif
+
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: Resuming...", __func__);
 
 	mutex_lock(&ts->data_lock);
@@ -4262,13 +4284,27 @@ int cyttsp_resume(void *handle)
 		if (ts->irq_enabled) {
 #ifdef CY_USE_LEVEL_IRQ
 			/* Workaround level interrupt unmasking issue */
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+			if (!prevent_sleep)
+#endif
 			disable_irq_nosync(ts->irq);
 			udelay(5);
+#endif
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+			if (!prevent_sleep)
 #endif
 			enable_irq(ts->irq);
 		Printlog("[%s] enable_irq:%d \n",__FUNCTION__,ts->irq_enabled);
 		}
 
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (prevent_sleep)
+			disable_irq_wake(ts->irq);
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (!prevent_sleep)
+#endif
 		retval = _cyttsp_wakeup(ts);
 		if (retval < 0) {
 			pr_err("%s: wakeup fail r=%d\n",
@@ -4310,6 +4346,19 @@ int cyttsp_suspend(void *handle)
 	int retval = 0;
 	struct cyttsp *ts = handle;
 	u8 sleep = CY_DEEP_SLEEP_MODE;
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+#if defined(CONFIG_TOUCHSCREEN_SWEEP2WAKE) || defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
+	bool prevent_sleep = false;
+#endif
+#if defined(CONFIG_TOUCHSCREEN_SWEEP2WAKE)
+	prevent_sleep = (s2w_switch > 0) && (s2w_s2sonly == 0);
+#endif
+#if defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
+	prevent_sleep = prevent_sleep || (dt2w_switch > 0);
+#endif
+#endif
+
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: Suspending...\n", __func__);
 	Printlog("[%s]\n",__FUNCTION__);
 
@@ -4324,9 +4373,17 @@ int cyttsp_suspend(void *handle)
 	_cyttsp_stop_watchdog_timer(ts);
 #endif /* --CY_USE_WATCHDOG */
 	if (ts->irq_enabled){		
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (!prevent_sleep) //don't disable irq if prevent_sleep
+#endif
 		disable_irq_nosync(ts->irq);
 		Printlog("[%s]:ts->disable_irq_nosync : %d", __FUNCTION__,ts->irq_enabled);
 		}
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (prevent_sleep)
+			enable_irq_wake(ts->irq);
+#endif
 
 	mutex_lock(&ts->data_lock);
 
@@ -4340,15 +4397,27 @@ int cyttsp_suspend(void *handle)
 			goto cyttsp_suspend_exit;
 		}
 #endif	
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (!prevent_sleep) { // if !prevent_sleep, try putting device to sleep
+#endif
 		retval = ttsp_write_block_data(ts, CY_REG_BASE +
 			offsetof(struct cyttsp_xydata, hst_mode),
 			sizeof(sleep), &sleep);
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		}
+#endif
 		Printlog(" [%s] : retval = %d \n",__FUNCTION__,retval);
 		if (retval < 0) {
 			pr_err("%s: Failed to write sleep bit\n", __func__);
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+			if (!prevent_sleep) //if prevent_sleep, enable_irq_wake is used. recursive.
+#endif
 			if (ts->irq_enabled)
 				enable_irq(ts->irq);
 		} else
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+			if (!prevent_sleep)
+#endif
 			_cyttsp_change_state(ts, CY_SLEEP_STATE);
 
 	} else {
@@ -4379,6 +4448,9 @@ int cyttsp_suspend(void *handle)
 #ifdef CY_USE_WATCHDOG
 		_cyttsp_start_watchdog_timer(ts);
 #endif /* --CY_USE_WATCHDOG */
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+		if (!prevent_sleep) //if prevent_sleep, enable_irq_wake is used. recursive.
+#endif
 		if (ts->irq_enabled)
 			enable_irq(ts->irq);
 	}
@@ -4984,6 +5056,9 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 #else
 	irq_flags = IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
 #endif
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+	irq_flags = irq_flags | IRQF_NO_SUSPEND;
+#endif
 	cyttsp_dbg(ts, CY_DBG_LVL_3,
 		"%s: Initialize IRQ: flags=%08X\n",
 		__func__, (unsigned int)irq_flags);
@@ -5054,3 +5129,4 @@ EXPORT_SYMBOL_GPL(cyttsp_core_init);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Cypress TrueTouch(R) Standard touchscreen driver core");
 MODULE_AUTHOR("Cypress");
+
