@@ -51,9 +51,9 @@
 #endif
 
 /* Version, author, desc, etc */
-#define DRIVER_AUTHOR "Dennis Rassmann <showp1984@gmail.com>"
+#define DRIVER_AUTHOR "Dennis Rassmann <showp1984@gmail.com> & Avinaba Dalal <d97.avinaba@gmail.com>"
 #define DRIVER_DESCRIPTION "Doubletap2wake for almost any device"
-#define DRIVER_VERSION "1.0"
+#define DRIVER_VERSION "1.1"
 #define LOGTAG "[doubletap2wake]: "
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
@@ -63,14 +63,30 @@ MODULE_LICENSE("GPLv2");
 
 /* Tuneables */
 #define DT2W_DEBUG		1
-#define DT2W_DEFAULT		1
+#define DT2W_DEFAULT		2
 
 #define DT2W_PWRKEY_DUR		60
 #define DT2W_FEATHER		200
 #define DT2W_TIME		700
 
+/*Music Mode declarations*/
+#define B_PREV_X_MIN            0
+#define B_PREV_X_MAX            160
+#define B_PREV_Y_MIN            327
+#define B_PREV_Y_MAX            527
+#define B_PLAY_X_MIN            160
+#define B_PLAY_X_MAX            320
+#define B_PLAY_Y_MIN            327
+#define B_PLAY_Y_MAX            527
+#define B_NEXT_X_MIN            320
+#define B_NEXT_X_MAX            480
+#define B_NEXT_Y_MIN            327
+#define B_NEXT_Y_MAX            527
+
+
 /* Resources */
 int dt2w_switch = DT2W_DEFAULT;
+int key = KEY_POWER;
 static cputime64_t tap_time_pre = 0;
 static int touch_x = 0, touch_y = 0, touch_nr = 0, x_pre = 0, y_pre = 0;
 static bool touch_x_called = false, touch_y_called = false, touch_cnt = true;
@@ -95,6 +111,9 @@ static int __init read_dt2w_cmdline(char *dt2w)
 	} else if (strcmp(dt2w, "0") == 0) {
 		pr_info("[cmdline_dt2w]: DoubleTap2Wake disabled. | dt2w='%s'\n", dt2w);
 		dt2w_switch = 0;
+	} else if (strcmp(dt2w, "2") == 0) {
+		pr_info("[cmdline_dt2w]: Music Mode enabled. | dt2w='%s'\n", dt2w);
+		dt2w_switch = 2;
 	} else {
 		pr_info("[cmdline_dt2w]: No valid input found. Going with default: | dt2w='%u'\n", dt2w_switch);
 	}
@@ -110,7 +129,7 @@ static void doubletap2wake_reset(void) {
 	x_pre = 0;
 	y_pre = 0;
 #if DT2W_DEBUG
-	pr_info("doubletap2wake_reset called!\n");
+	pr_info("sweep2wake_reset called!\n");
 #endif
 
 }
@@ -119,10 +138,10 @@ static void doubletap2wake_reset(void) {
 static void doubletap2wake_presspwr(struct work_struct * doubletap2wake_presspwr_work) {
 	if (!mutex_trylock(&pwrkeyworklock))
 		return;
-	input_event(doubletap2wake_pwrdev, EV_KEY, KEY_POWER, 1);
+	input_event(doubletap2wake_pwrdev, EV_KEY, key, 1);
 	input_event(doubletap2wake_pwrdev, EV_SYN, 0, 0);
 	msleep(DT2W_PWRKEY_DUR);
-	input_event(doubletap2wake_pwrdev, EV_KEY, KEY_POWER, 0);
+	input_event(doubletap2wake_pwrdev, EV_KEY, key, 0);
 	input_event(doubletap2wake_pwrdev, EV_SYN, 0, 0);
 	msleep(DT2W_PWRKEY_DUR);
 	mutex_unlock(&pwrkeyworklock);
@@ -148,6 +167,22 @@ static unsigned int calc_feather(int coord, int prev_coord) {
 	return calc_coord;
 }
 
+int define_limits(int x, int y) // A function to determine the part of screen where its touched.
+{
+      if(x > B_PREV_X_MIN && x < B_PREV_X_MAX && y > B_PREV_Y_MIN && y <  B_PREV_Y_MAX)
+             return 1; 
+      else if(x > B_PLAY_X_MIN && x < B_PLAY_X_MAX && y > B_PLAY_Y_MIN && y <  B_PLAY_Y_MAX)
+             return 2;
+      else if(x > B_NEXT_X_MIN && x < B_NEXT_X_MAX && y > B_NEXT_Y_MIN && y <  B_NEXT_Y_MAX)
+             return 3;
+      else
+             return 0;
+
+/*1 - Previous Button
+  2 - Play/Pause Button
+  3 - Next Button*/
+}
+
 /* init a new touch */
 static void new_touch(int x, int y) {
 	tap_time_pre = ktime_to_ms(ktime_get());
@@ -159,15 +194,16 @@ static void new_touch(int x, int y) {
 /* Doubletap2wake main function */
 static void detect_doubletap2wake(int x, int y, bool st)
 {
+        
         bool single_touch = st;
 #if DT2W_DEBUG
         pr_info(LOGTAG"x,y(%4d,%4d) single:%s\n",
                 x, y, (single_touch) ? "true" : "false");
 #endif
-	if ((single_touch) && (dt2w_switch > 0) && (exec_count) && (touch_cnt)) {
+	if ((single_touch) && (dt2w_switch == 1) && (exec_count) && (touch_cnt)) {
+                key = KEY_POWER;
 		touch_cnt = false;
-		if (touch_nr == 0 || touch_nr == 1)  //modified for taoshan
-                 {
+		if (touch_nr == 0 || touch_nr == 1) {
 			new_touch(x, y);
 		} else if (touch_nr == 2) {
 			if ((calc_feather(x, x_pre) < DT2W_FEATHER) &&
@@ -182,11 +218,55 @@ static void detect_doubletap2wake(int x, int y, bool st)
 			doubletap2wake_reset();
 			new_touch(x, y);
 		}
-		if ((touch_nr > 2))   //modified for taoshan 
-                {
+		if ((touch_nr > 2)) {
 			pr_info(LOGTAG"ON\n");
 			exec_count = false;
 			doubletap2wake_pwrtrigger();
+			doubletap2wake_reset();
+		}
+	}
+     if ((single_touch) && (dt2w_switch == 2) && (exec_count) && (touch_cnt)) 
+               {
+		touch_cnt = false;
+		if (touch_nr == 0) {
+			new_touch(x, y);
+		} else if (touch_nr == 1) 
+                        {
+			if ((calc_feather(x, x_pre) < DT2W_FEATHER) &&
+			    (calc_feather(y, y_pre) < DT2W_FEATHER) &&
+			    ((ktime_to_ms(ktime_get())-tap_time_pre) < DT2W_TIME))
+				touch_nr++;
+			else {
+				doubletap2wake_reset();
+				new_touch(x, y);
+			     }
+		} else {
+			doubletap2wake_reset();
+			new_touch(x, y);
+		}
+		if ((touch_nr > 1)) {
+			//pr_info(LOGTAG"ON\n");
+			exec_count = false;
+                        if(define_limits(x,y)==1)
+                            {
+                               pr_info("Music : Prev\n");
+                               key = KEY_PREVIOUSSONG;
+			       doubletap2wake_pwrtrigger();
+                            }
+                        else if(define_limits(x,y)==2)
+                            {
+                               pr_info("Music : Play\n");
+                               key = KEY_PLAYPAUSE;
+			       doubletap2wake_pwrtrigger();
+                            }
+                         else if(define_limits(x,y)==3)
+                            {
+                               pr_info("Music : Next\n");
+                               key = KEY_NEXTSONG;
+			       doubletap2wake_pwrtrigger();
+                            }
+                         else
+                            pr_info("No button pressed\n");
 			doubletap2wake_reset();
 		}
 	}
@@ -400,6 +480,9 @@ static int __init doubletap2wake_init(void)
 	}
 
 	input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PREVIOUSSONG);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PLAYPAUSE);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
 	doubletap2wake_pwrdev->name = "dt2w_pwrkey";
 	doubletap2wake_pwrdev->phys = "dt2w_pwrkey/input0";
 
