@@ -4172,10 +4172,7 @@ static void cyttsp_ts_work_func(struct work_struct *work)
 			__func__, retval);
 		_cyttsp_change_state(ts, CY_INVALID_STATE);
 	}
-
-	mutex_unlock(&ts->data_lock);
-
-	return;
+        return;
 }
 
 static int _cyttsp_wakeup(struct cyttsp *ts)
@@ -4398,11 +4395,12 @@ int cyttsp_suspend(void *handle)
 		}
 #endif	
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
-		if (!prevent_sleep) { // if !prevent_sleep, try putting device to sleep
+		if (!prevent_sleep) { // if prevent_sleep, try putting device to sleep
 #endif
 		retval = ttsp_write_block_data(ts, CY_REG_BASE +
 			offsetof(struct cyttsp_xydata, hst_mode),
 			sizeof(sleep), &sleep);
+                         pr_info("Deep Sleep");
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
 		}
 #endif
@@ -4831,7 +4829,237 @@ static void get_bma250_func(struct work_struct *work)
    schedule_delayed_work(&bma250->ESD_work, delay);
 }
 #endif 
+//DT2W for taoshan <start>
+#define DT2W_DEBUG		1
+#define DT2W_DEFAULT		1
 
+#define DT2W_PWRKEY_DUR		60
+#define DT2W_FEATHER		200
+#define DT2W_TIME		700
+
+
+
+
+/* Resources */
+int dt2w_switch = DT2W_DEFAULT;
+int key = KEY_POWER;
+static cputime64_t tap_time_pre = 0;
+static int touch_x = 0, touch_y = 0, touch_nr = 0, x_pre = 0, y_pre = 0;
+static bool touch_x_called = false, touch_y_called = false, touch_cnt = true;
+static bool exec_count = true;
+bool dt2w_scr_suspended = false;
+#ifndef WAKE_HOOKS_DEFINED
+#ifndef CONFIG_HAS_EARLYSUSPEND
+static struct notifier_block dt2w_lcd_notif;
+#endif
+#endif
+static struct input_dev * doubletap2wake_pwrdev;
+static DEFINE_MUTEX(pwrkeyworklock);
+static struct workqueue_struct *dt2w_input_wq;
+static struct work_struct dt2w_input_work;
+
+
+static void doubletap2wake_reset(void) {
+	exec_count = true;
+	touch_nr = 0;
+	tap_time_pre = 0;
+	x_pre = 0;
+	y_pre = 0;
+#if DT2W_DEBUG
+	pr_info("doubletap2wake_reset called!\n");
+#endif
+
+}
+
+static void doubletap2wake_presspwr(struct work_struct * doubletap2wake_presspwr_work) {
+	//if (!mutex_trylock(&pwrkeyworklock))
+	//	return;
+	input_event(doubletap2wake_pwrdev, EV_KEY, key, 1);
+        pr_info("input event1!\n");
+	input_event(doubletap2wake_pwrdev, EV_SYN, 0, 0);
+        pr_info("input sync1!\n");
+	msleep(DT2W_PWRKEY_DUR);
+        pr_info("msleep!\n");
+	input_event(doubletap2wake_pwrdev, EV_KEY, key, 0);
+        pr_info("input event2!\n");
+	input_event(doubletap2wake_pwrdev, EV_SYN, 0, 0);
+        pr_info("input sync2!\n");
+	//msleep(DT2W_PWRKEY_DUR);
+	mutex_unlock(&pwrkeyworklock);
+	pr_info("power press!\n");
+	return;
+}
+static DECLARE_WORK(doubletap2wake_presspwr_work, doubletap2wake_presspwr);
+
+/* PowerKey trigger */
+static void doubletap2wake_pwrtrigger(void) {
+	schedule_work(&doubletap2wake_presspwr_work);
+        return;
+}
+static unsigned int calc_feather(int coord, int prev_coord) {
+	int calc_coord = 0;
+	calc_coord = coord-prev_coord;
+	if (calc_coord < 0)
+		calc_coord = calc_coord * (-1);
+	return calc_coord;
+}
+
+static void new_touch(int x, int y) {
+	tap_time_pre = ktime_to_ms(ktime_get());
+	x_pre = x;
+	y_pre = y;
+	touch_nr++;
+}
+
+static void detect_doubletap2wake(int x, int y, bool st)
+{
+        
+        bool single_touch = st;
+#if DT2W_DEBUG
+        //pr_info(LOGTAG"x,y(%4d,%4d) single:%s\n",
+                x, y, (single_touch) ? "true" : "false");
+#endif
+	if ((single_touch) && (dt2w_switch == 1) && (exec_count) && (touch_cnt)) {
+                key = KEY_POWER;
+		touch_cnt = false;
+		if (touch_nr == 0 || touch_nr == 1) {
+			new_touch(x, y);
+		} else if (touch_nr == 2) {
+			if ((calc_feather(x, x_pre) < DT2W_FEATHER) &&
+			    (calc_feather(y, y_pre) < DT2W_FEATHER) &&
+			    ((ktime_to_ms(ktime_get())-tap_time_pre) < DT2W_TIME))
+				touch_nr++;
+			else {
+				doubletap2wake_reset();
+				new_touch(x, y);
+			}
+		} else {
+			doubletap2wake_reset();
+			new_touch(x, y);
+		}
+		if ((touch_nr > 2)) {
+			//pr_info(LOGTAG"ON\n");
+			exec_count = false;
+			doubletap2wake_pwrtrigger();
+			doubletap2wake_reset();
+		}
+	}
+     
+}
+
+static void dt2w_input_callback(struct work_struct *unused) {
+
+	detect_doubletap2wake(touch_x, touch_y, true);
+
+	return;
+}
+
+static void dt2w_input_event(struct input_handle *handle, unsigned int type,unsigned int code, int value) {
+#if DT2W_DEBUG
+	pr_info("doubletap2wake: code: %s|%u, val: %i\n",
+		((code==ABS_MT_POSITION_X) ? "X" :
+		(code==ABS_MT_POSITION_Y) ? "Y" :
+		(code==ABS_MT_TRACKING_ID) ? "ID" :
+		"undef"), code, value);
+#endif
+	if (!dt2w_scr_suspended)
+		return;
+
+	if (code == ABS_MT_SLOT) {
+		doubletap2wake_reset();
+		return;
+	}
+
+	if (code == ABS_MT_TRACKING_ID && value == 0) {
+		touch_cnt = true;
+		return;
+	}
+
+	if (code == ABS_MT_POSITION_X) {
+		touch_x = value;
+		touch_x_called = true;
+	}
+
+	if (code == ABS_MT_POSITION_Y) {
+		touch_y = value;
+		touch_y_called = true;
+	}
+
+	if (touch_x_called || touch_y_called) {
+		touch_x_called = false;
+		touch_y_called = false;
+		queue_work_on(0, dt2w_input_wq, &dt2w_input_work);
+	}
+}
+
+static int input_dev_filter(struct input_dev *dev) {
+	if (strstr(dev->name, "cyttsp3-i2c")) {
+#ifdef DT2W_DEBUG
+		pr_info("dev->name matched!\n");
+#endif
+		return 0;
+	} else {
+                pr_info("dev->name not matched.\n");
+		return 1;
+	}
+}
+
+static int dt2w_input_connect(struct input_handler *handler,
+				struct input_dev *dev, const struct input_device_id *id) {
+	struct input_handle *handle;
+	int error;
+        //int flag;
+
+	if (input_dev_filter(dev))
+		return -ENODEV;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "dt2w";
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err2;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err1;
+        pr_info("dt2w_input_connect : no error.\n");
+	return 0;
+err1:
+	input_unregister_handle(handle);
+        pr_info("dt2w_input_connect : err1.\n");
+err2:
+	kfree(handle);
+         pr_info("dt2w_input_connect : err2.\n");
+	return error;
+}
+
+static void dt2w_input_disconnect(struct input_handle *handle) {
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id dt2w_ids[] = {
+	{ .driver_info = 1 },
+	{ },
+};
+
+static struct input_handler dt2w_input_handler = {
+	.event		= dt2w_input_event,
+	.connect	= dt2w_input_connect,
+	.disconnect	= dt2w_input_disconnect,
+	.name		= "dt2w_inputreq",
+	.id_table	= dt2w_ids,
+};
+
+
+//DT2W for taoshan <end>
 void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	struct device *dev, int irq, char *name)
 {
@@ -4951,11 +5179,13 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 
 	/* Create the input device and register it. */
 	input_device = input_allocate_device();
-	if (input_device == NULL) {
+	if (!input_device) {
 		pr_err("%s: Error, failed to allocate input device\n",
 			__func__);
 		goto error_init;
 	}
+        input_set_capability(input_device, EV_KEY, KEY_POWER);
+        
 
 	ts->input = input_device;
 	input_device->name = name;
@@ -5079,6 +5309,14 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 			__func__, retval);
 		goto error_input_register_device;
 	}
+    dt2w_input_wq = create_workqueue("dt2wiwq");
+	if (!dt2w_input_wq) {
+		pr_err("%s: Failed to create dt2wiwq workqueue\n", __func__);
+		return -EFAULT;
+	}
+    rc = input_register_handler(&dt2w_input_handler);
+	if (rc)
+		pr_err("%s: Failed to register dt2w_input_handler\n", __func__);	
 
 	/* Add /sys files */
 	cyttsp_ldr_init(ts);
@@ -5106,6 +5344,8 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 
 error_input_register_device:
 	input_free_device(input_device);
+	input_unregister_handler(&dt2w_input_handler);
+	destroy_workqueue(dt2w_input_wq);
 error_init:
 
 	mutex_destroy(&ts->data_lock);
@@ -5129,4 +5369,3 @@ EXPORT_SYMBOL_GPL(cyttsp_core_init);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Cypress TrueTouch(R) Standard touchscreen driver core");
 MODULE_AUTHOR("Cypress");
-
