@@ -974,6 +974,13 @@ config TOUCHSCREEN_CYTTSP3_CORE
          To compile this driver as a module, choose M here: the
          module will be called cyttsp3-core.
 
+config TOUCHSCREEN_CYTTSP3_D2W
+	bool "Doubletap2Wake for Cypress TTSP Gen3"
+	depends on TOUCHSCREEN_CYTTSP3_CORE
+	default n
+	help
+		Enable Doubletap2Wake for Cypress TTSP Gen3 touch panels
+
 config TOUCHSCREEN_LGE_COMMON
 	bool "LGE Touch common driver"
 	depends on I2C
@@ -1037,3 +1044,4 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 	  module will be called synaptics_dsx_fw_update.
 
 endif
+
