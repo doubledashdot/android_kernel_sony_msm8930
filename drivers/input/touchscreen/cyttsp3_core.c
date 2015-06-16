@@ -192,6 +192,14 @@
 int d2w_switch = 0;
 int s2w_switch = 0; 
 int mm_switch = 0;
+int s2w_right = 0;
+int s2w_left = 0;
+int s2w_up = 0;
+int s2w_down = 0;
+int s2w_fwd_diag = 0;
+int s2w_bck_diag = 0;
+int s2w_l = 0;
+int s2w_v = 0;
 int key = KEY_POWER;
 /*s2w_switch possible values
 0 - any direction
@@ -201,8 +209,9 @@ int key = KEY_POWER;
 4 - down
 -1 - off*/
 int s2w_touch_count = 0;
-static int s2w_coord[150][2];
 int s2w_coord_count = 0;
+int x = 0, prev_x = 0, y = 0, prev_y = 0, x_first = 0, y_first = 0, max_x =0, min_x = 0, max_y = 0, min_y = 0;
+static int dir[4], multiple_dir;
 #define S2W_MIN_TOUCH_COUNT 100
 
 static cputime64_t tap_time_pre = 0;
@@ -1587,104 +1596,220 @@ static bool detect_musicmode(int x, int y)
 	return false;
 }
 
-void s2w_coord_dump(int x, int y)
+void s2w_coord_dump(int c_x, int c_y)
 {
-	if(s2w_coord_count < 150) {
-		s2w_coord[s2w_coord_count][0] = x;
-		s2w_coord[s2w_coord_count][1] = y;
-		s2w_coord_count++;
-		s2w_touch_count++;
-		//pr_info("%s, x=%d,y=%d\n",__func__,x,y);
+	pr_info("%s:x-%d, y-%d\n",__func__,c_x,c_y);
+	if(s2w_coord_count == 0) {
+		x = c_x;
+		y = c_y;
+		x_first = c_x;
+		y_first = c_y;
+	} else {
+		prev_x = x;
+		prev_y = y;
+		x = c_x;
+		y = c_y;
 	}
+	s2w_coord_count++;
+	s2w_touch_count++;
 
 }
 void s2w_coord_reset(void)
 {
 	int i = 0;
-	for(i = 0; i < s2w_coord_count; i++) {
-		s2w_coord[i][0] = 0;
-		s2w_coord[i][1] = 0;
-	}
+	x =0;
+	y = 0;
+	x_pre = 0;
+	y_pre = 0;
+	x_first = 0;
+	y_first = 0;
+	multiple_dir = 0;
+	for(i = 0; i < 4; i++)
+		dir[i] = 0;
 	s2w_coord_count = 0;
+	s2w_touch_count = 0;
 }
-int s2w_coord_nature(int coord[][2], int count)
+
+int compare_four(int a, int b, int c, int d) {
+      int avg = (a + b + c + d)/4;
+      int max = abs(avg - a);
+      if (abs(avg - b) > max)
+        max = abs(avg - b);
+      if (abs(avg - c) > max)
+        max = abs(avg - c);
+      if (abs(avg - d) > max)
+        max = abs(avg - d);
+      return max;
+}
+
+void direction_vector_calc(void) {
+	int tot = 0;
+	if(s2w_coord_count > 1) {
+      if(x > x_pre) {
+      	dir[0]++;  //right
+      	tot++;
+      } else if (x < x_pre) {
+      	dir[1]++;  //left
+      	tot++;
+      }
+      if(y < y_pre) {
+      	dir[2]++;   //up
+      	tot++;
+      } else if (y > y_pre) {
+      	dir[3]++;   //down
+      	tot++;
+      }
+      //To determine whether both x and y co-ordinates have changed from previous input or not and act accordingly.
+      if(tot > 1)
+      	multiple_dir++;
+      //To determine max deviation in x coord.
+      if(x > max_x)
+      	max_x = x;
+      //To determine min deviation in x coord.
+      if(x < min_x)
+      	min_x = x;
+      //To determine max deviation in y coord.
+      if(y > max_y)
+      	max_y = y;
+      //To determine min deviation in y coord.
+      if(y < min_y)
+      	min_y = y;
+  }
+}
+
+int s2w_coord_nature(void)
 {
+	int i = 0;
+	pr_info("%s:Recieved count - %d\n",__func__,s2w_touch_count);
 	/*This function detects the nature of sweep input, and on the basis of following, it returns -
-	1 - sweep left
-	2 - sweep right
+	1 - sweep right
+	2 - sweep left
 	3 - sweep up
 	4 - sweep down*/
-	//pr_info("%s:Got total counts - %d\n",__func__,count);
-	int i = 0, flag = 0;
-	for(i = 0; i < count-1; i++){
-        if (coord[i][0] < coord[i+1][0] && abs(coord[i][1]-coord[i+1][1]) < 100)
-        	continue;
-        else if (count - i < 10)
-        	flag = 1;
-        else
-             break;	 
+	pr_info("%s:multiple_dir - %d\n",__func__,multiple_dir);
+	for(i = 0; i < 4; i++ )
+		pr_info("%s:dir[%d] - %d\n",__func__,i,dir[i]);
+	if (abs(x - x_first) > 150 && abs(y - y_first) < 50) {
+           if(dir[0] > 1 && abs(max_y - y) < 50 && abs(min_y - y) < 50 && abs(max_x - x) < 50 && abs(min_x - x) < 50) {
+           	  pr_info("%s:Sweep right\n",__func__);
+           	  return 1;
+           	}
+           	else if(dir[1] > 1 && abs(max_y - y) < 50 && abs(min_y - y) < 50 && abs(max_x - x) < 50 && abs(min_x - x) < 50) {
+           	  pr_info("%s:Sweep left\n",__func__);
+           	  return 2;
+           	}
 	}
-	if (flag != 0) {
-		pr_info("%s returned %d\n",__func__,flag);
-		return flag;
+	if (abs(y - y_first) > 150 && abs(x - x_first) < 50) {
+           if(dir[2] > 1 && abs(max_x - x) < 50 && abs(min_x - x) < 50 && abs(max_y - y) < 50 && abs(min_y - y) < 50) {
+           	  pr_info("%s:Sweep up\n",__func__);
+           	  return 3;
+           	}
+           	else if(dir[3] > 1 && abs(max_x - x) < 50 && abs(min_x - x) < 50 && abs(max_y - y) < 50 && abs(min_y - y) < 50) {
+           	  pr_info("%s:Sweep down\n",__func__);
+           	  return 4;
+           	}
 	}
-	for(i = 0; i < count-1; i++){
-        if (coord[i][0] > coord[i+1][0] && abs(coord[i][1]-coord[i+1][1]) < 100)
-        	continue;
-        else if (count - i < 10)
-        	flag = 2;
-        else
-             break;	 
+	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir >= s2w_touch_count - 2)) {
+		if(x > x_first) {
+			pr_info("%s:Forward diagonal swipe!!\n",__func__);
+           	return 5;
+		}//forward diagonal swipe!!
+		else if(x < x_first) {
+			pr_info("%s:Backward diagonal swipe!!\n",__func__);
+           	return 6;
+		}//backward diagonal swipe!!
 	}
-	if (flag != 0) {
-		pr_info("%s returned %d\n",__func__,flag);
-		return flag;
+	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir < s2w_touch_count - 1) && dir[0] > s2w_touch_count/3 && dir[3] > s2w_touch_count/3) {
+		pr_info("%s:Draw 'L'\n",__func__);
+           	  return 7;
 	}
-	/*for(i = 0; i < count-1; i++){
-        if (coord[i][1] < coord[i+1][1] && abs(coord[i][0]-coord[i+1][0]) < 100)
-        	continue;
-        else if (count - i < 1)
-        	flag = 3;
-        else
-             break;	 
+	if(abs(x - x_first) > 80 && abs(y - y_first) < 50 && (max_y >= y + 50) && (multiple_dir < s2w_touch_count - 1)) {
+		pr_info("%s:Draw 'V'\n",__func__);
+           	  return 8;
 	}
-	if (flag != 0) {
-		pr_info("%s returned %d\n",__func__,flag);
-		return flag;
-	}
-	for(i = 0; i < count-1; i++){
-        if (coord[i][1] > coord[i+1][1] && abs(coord[i][0]-coord[i+1][0]) < 100)
-        	continue;
-        else if (count - i < 20)
-        	flag = 4;
-        else
-             break;	 
-	}
-	if (flag != 0) {
-		pr_info("%s returned %d\n",__func__,flag);
-		return flag;
-	}*/
-pr_info("%s returned 0\n",__func__);
-s2w_coord_reset();
-return 0;
 	
+	s2w_coord_reset();
+	return 0;
 	
 }
+
 static bool detect_sweep2wake(int x, int y, int id)
 {
-	    
-		if (calc_feather(x, x_pre) < D2W_FEATHER && calc_feather(y, y_pre) < D2W_FEATHER &&	ktime_to_ms(ktime_get())-tap_time_pre < D2W_TIME && id == 255 && s2w_touch_count > 10) {
-			doubletap2wake_reset();
-			return true;
+	        key = KEY_POWER;
+		if (id == 255 && s2w_touch_count > 10) {
+			int x = s2w_coord_nature();
+			if(x) {
+				if(x == 1) {
+					if(s2w_right) {
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+				if(x == 2) {
+					if(s2w_left){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+                if(x == 3) {
+					if(s2w_up){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+				if(x == 4) {
+					if(s2w_down){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				} 
+				if(x == 5) {
+					if(s2w_fwd_diag){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}    
+				if(x == 6) {
+					if(s2w_bck_diag){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+				if(x == 7) {
+					if(s2w_l){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+				if(x == 8) {
+					if(s2w_v){
+						s2w_coord_reset();
+			            doubletap2wake_reset();
+						return true;
+					}
+				}
+			   //pr_info("%s returned true\n",__func__);
+			   
+			   
+		}
 		} else {
 			//doubletap2wake_reset();
 			s2w_coord_dump(x, y);
+			direction_vector_calc();
 			new_touch(x, y);
 		}
 		if (ktime_to_ms(ktime_get())-tap_time_pre > D2W_TIME){
 			s2w_coord_reset();
 			doubletap2wake_reset();
 		}
+		//pr_info("%s returned false\n",__func__);
 		return false;
 }
 #endif // CYTTSP3_D2W
@@ -1965,8 +2090,8 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 #ifdef CYTTSP3_D2W
 	if (scr_suspended) {
 		if (d2w_switch) {
-						if (ts->xy_data.touch12_id == 255) { //255? trust @corphish
-				touch_cnt = true;
+			if (ts->xy_data.touch12_id == 255) { //255? trust @corphish
+				 touch_cnt = true;
 			} else {
 				if (detect_doubletap2wake(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y)) == true) {
@@ -1982,6 +2107,18 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 	
 			   	    	pr_info("%s: music_mode: power on\n", __func__);
 					    doubletap2wake_pwrtrigger();
+					   
+				}
+					
+		}
+               if (s2w_switch) {
+                           //pr_info("%s: testing s2w\n", __func__);
+                           touch_cnt = true;
+			   if (detect_sweep2wake(be16_to_cpu(ts->xy_data.tch1.x),
+						be16_to_cpu(ts->xy_data.tch1.y), ts->xy_data.touch12_id) == true) {
+			   	    	                   pr_info("%s: sweep2wake: power on\n", __func__);
+					                       doubletap2wake_pwrtrigger();
+                                     
 					   
 				}
 					
@@ -3957,11 +4094,236 @@ static ssize_t music_mode_dump(struct device *dev,
 
 	return count;
 }
-struct kobject *android_touch_kobj;
+
 static DEVICE_ATTR(music_mode, (S_IWUSR|S_IRUGO),
 	music_mode_show, music_mode_dump);
 
-#endif // CYTTSP3_D2W
+static ssize_t s2w_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_switch);
+
+	return count;
+}
+//s2w master switch
+static ssize_t s2w_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_switch = 0;
+	} else if (buf[0] == '1') {
+		s2w_switch = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_master, (S_IWUSR|S_IRUGO),
+	s2w_show, s2w_dump);
+//specific switches
+static ssize_t s2w_right_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_right);
+
+	return count;
+}
+
+static ssize_t s2w_right_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_right = 0;
+	} else if (buf[0] == '1') {
+		s2w_right = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_right, (S_IWUSR|S_IRUGO),
+	s2w_right_show, s2w_right_dump);
+//specific switches
+static ssize_t s2w_left_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_left);
+
+	return count;
+}
+
+static ssize_t s2w_left_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_left = 0;
+	} else if (buf[0] == '1') {
+		s2w_left = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_left, (S_IWUSR|S_IRUGO),
+	s2w_left_show, s2w_left_dump);
+//specific switches
+static ssize_t s2w_up_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_up);
+
+	return count;
+}
+
+static ssize_t s2w_up_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_up = 0;
+	} else if (buf[0] == '1') {
+		s2w_up = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_up, (S_IWUSR|S_IRUGO),
+	s2w_up_show, s2w_up_dump);
+#endif 
+//specific switches
+static ssize_t s2w_down_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_down);
+
+	return count;
+}
+
+static ssize_t s2w_down_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_down = 0;
+	} else if (buf[0] == '1') {
+		s2w_down = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_down, (S_IWUSR|S_IRUGO),
+	s2w_down_show, s2w_down_dump);
+//specific switches
+static ssize_t s2w_fwd_diag_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_fwd_diag);
+
+	return count;
+}
+
+static ssize_t s2w_fwd_diag_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_fwd_diag = 0;
+	} else if (buf[0] == '1') {
+		s2w_fwd_diag = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_fwd_diag, (S_IWUSR|S_IRUGO),
+	s2w_fwd_diag_show, s2w_fwd_diag_dump);
+//specific switches
+static ssize_t s2w_bck_diag_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_bck_diag);
+
+	return count;
+}
+
+static ssize_t s2w_bck_diag_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_bck_diag = 0;
+	} else if (buf[0] == '1') {
+		s2w_bck_diag = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_bck_diag, (S_IWUSR|S_IRUGO),
+	s2w_bck_diag_show, s2w_bck_diag_dump);
+//specific switches
+static ssize_t s2w_l_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_l);
+
+	return count;
+}
+
+static ssize_t s2w_l_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_l = 0;
+	} else if (buf[0] == '1') {
+		s2w_l = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_l, (S_IWUSR|S_IRUGO),
+	s2w_l_show, s2w_l_dump);
+//specific switches
+static ssize_t s2w_v_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t count = 0;
+
+	count += sprintf(buf, "%d\n", s2w_v);
+
+	return count;
+}
+
+static ssize_t s2w_v_dump(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (buf[0] == '0') {
+		s2w_v = 0;
+	} else if (buf[0] == '1') {
+		s2w_v = 1;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(s2w_v, (S_IWUSR|S_IRUGO),
+	s2w_v_show, s2w_v_dump);
+//CYTTSP3_D2W
 static void cyttsp_ldr_init(struct cyttsp *ts)
 {
 #ifdef CONFIG_TOUCHSCREEN_DEBUG
@@ -4046,6 +4408,42 @@ static void cyttsp_ldr_init(struct cyttsp *ts)
        rc = sysfs_create_file(android_touch_kobj, &dev_attr_music_mode);
 	if (rc) {
 		pr_warn("%s: sysfs_create_file failed for music mode\n", __func__);
+	}
+      rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_master);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_right);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_right\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_left);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_up);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_down);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_fwd_diag);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_bck_diag);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_l);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
+	}
+	rc = sysfs_create_file(android_touch_kobj, &dev_attr_s2w_v);
+	if (rc) {
+		pr_warn("%s: sysfs_create_file failed for s2w_master\n", __func__);
 	}
 		
 #endif
@@ -4736,7 +5134,7 @@ void cyttsp_early_suspend(struct early_suspend *h)
 	Printlog("[%s]:\n",__FUNCTION__);
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: EARLY SUSPEND ts=%p\n", __func__, ts);
 #ifdef CYTTSP3_D2W
-	if (d2w_switch || mm_switch){
+	if (d2w_switch || mm_switch || s2w_switch) {
 		//enable_irq(ts->irq);
 		enable_irq_wake(ts->irq);
 	}
@@ -4757,7 +5155,7 @@ void cyttsp_late_resume(struct early_suspend *h)
 	Printlog("[%s]:\n",__FUNCTION__);
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: LATE RESUME ts=%p\n", __func__, ts);
 #ifdef CYTTSP3_D2W
-	if (d2w_switch || mm_switch)// || s2w_switch > 0)
+	if (d2w_switch || mm_switch || s2w_switch)
 		{
 			disable_irq_wake(ts->irq);
 			//disable_irq(ts->irq);
@@ -5343,10 +5741,11 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 		input_set_capability(input_device, EV_KEY, KEY_PROG1);
 
 #ifdef CYTTSP3_D2W
-	input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
+	    input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PLAYPAUSE);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PREVIOUSSONG);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PHONE);
 #endif
 
 	/* enable interrupts */
