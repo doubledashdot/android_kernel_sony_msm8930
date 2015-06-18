@@ -1503,6 +1503,15 @@ static void _cyttsp_get_tracks(struct cyttsp *ts, int cur_tch,
 
 #ifdef CYTTSP3_D2W
 
+void doubletap2wake_setdev(struct input_dev * input_device) {
+      doubletap2wake_pwrdev = input_device;
+      	input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PLAYPAUSE);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PREVIOUSSONG);
+        input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
+      printk("set doubletap2wake_pwrdev: %s\n", doubletap2wake_pwrdev->name);
+}
+
 static void doubletap2wake_presspwr(struct work_struct * doubletap2wake_presspwr_work) {
 	if (!mutex_trylock(&pwrkeyworklock))
 		return;
@@ -5609,13 +5618,13 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 		goto error_init;
 	}
 
-#ifdef CYTTSP3_D2W
+/*#ifdef CYTTSP3_D2W
 	doubletap2wake_pwrdev = input_allocate_device();
 	if (!doubletap2wake_pwrdev) {
 		pr_err("Can't allocate suspend autotest power button\n");
 		goto error_init;
 	}
-#endif
+#endif*/
 
 	ts->input = input_device;
 	input_device->name = name;
@@ -5625,10 +5634,10 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	ts->bus_type = bus_ops->dev->bus;
 	INIT_WORK(&ts->cyttsp_resume_startup_work, cyttsp_ts_work_func);
 
-#ifdef CYTTSP3_D2W
+/*#ifdef CYTTSP3_D2W
 	doubletap2wake_pwrdev->name = "dt2w_pwrkey";
 	doubletap2wake_pwrdev->phys = "dt2w_pwrkey/input0";
-#endif
+#endif*/
 
 #ifdef CONFIG_USE_SENSOR_FOR_ESD      
 	INIT_DELAYED_WORK(&ts->ESD_work, get_bma250_func);
@@ -5715,14 +5724,14 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	if (ts->platform_data->frmwrk->enable_vkeys)
 		input_set_capability(input_device, EV_KEY, KEY_PROG1);
 
-#ifdef CYTTSP3_D2W
+/*#ifdef CYTTSP3_D2W
 	    input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PLAYPAUSE);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PREVIOUSSONG);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PHONE);
-#endif
-
+#endif*/
+doubletap2wake_setdev(input_device);
 	/* enable interrupts */
 #ifdef CY_USE_LEVEL_IRQ
 	irq_flags = IRQF_TRIGGER_LOW | IRQF_ONESHOT;
@@ -5754,13 +5763,16 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 		goto error_input_register_device;
 	}
 
-#ifdef CYTTSP3_D2W
+/*#ifdef CYTTSP3_D2W
 	retval = input_register_device(doubletap2wake_pwrdev);
 	if (retval < 0) {
 		pr_err("%s: Error, failed to register input device r=%d\n",
 			__func__, retval);
 		goto error_input_register_device;
 	}
+#endif*/
+
+#ifdef CYTTSP3_D2W
 #endif
 
 	/* Add /sys files */
@@ -5789,9 +5801,9 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 
 error_input_register_device:
 	input_free_device(input_device);
-#ifdef CYTTSP3_D2W
+/*#ifdef CYTTSP3_D2W
 	input_free_device(doubletap2wake_pwrdev);
-#endif
+#endif*/
 error_init:
 
 	mutex_destroy(&ts->data_lock);
