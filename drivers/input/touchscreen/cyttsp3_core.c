@@ -1541,24 +1541,6 @@ static inline void new_touch(int x, int y) {
 	y_pre = y;
 }
 
-static bool detect_doubletap2wake(int x, int y)
-{
-        key = KEY_POWER;
-	if (touch_cnt == false) {
-		new_touch(x, y);
-	} else {
-		if ((calc_feather(x, x_pre) < D2W_FEATHER) &&
-				(calc_feather(y, y_pre) < D2W_FEATHER) &&
-				(((ktime_to_ms(ktime_get()))-tap_time_pre) < D2W_TIME)) {
-			doubletap2wake_reset();
-			return true;
-		} else {
-			doubletap2wake_reset();
-			new_touch(x, y);
-		}
-	}
-	return false;
-} 
 int touch_position(int x, int y)
 {
   if(x<160 && (y>327 && y<527))
@@ -1569,32 +1551,34 @@ int touch_position(int x, int y)
       return 3;
   return 0;
 }
-static bool detect_musicmode(int x, int y)
+
+static bool detect_doubletap2wake(int x, int y)
 {
-        new_touch(x, y);
-	if ((calc_feather(x, x_pre) < D2W_FEATHER) &&
+        key = KEY_POWER;
+	if (touch_cnt == false) {
+		new_touch(x, y);
+	} else {
+		if ((calc_feather(x, x_pre) < D2W_FEATHER) &&
 				(calc_feather(y, y_pre) < D2W_FEATHER) &&
 				(((ktime_to_ms(ktime_get()))-tap_time_pre) < D2W_TIME)) {
-                        if(touch_position(x,y)==1)
+			if(mm_switch) {
+				        if(touch_position(x,y)==1)
                            key = KEY_PREVIOUSSONG;
                         if(touch_position(x,y)==2)
                            key = KEY_PLAYPAUSE;
                         if(touch_position(x,y)==3)
                            key = KEY_NEXTSONG;
-                        if(touch_position(x,y)==0)
-                               {
-                                  doubletap2wake_reset();
-                                  return false;
-                               }
+			}
+
 			doubletap2wake_reset();
 			return true;
 		} else {
 			doubletap2wake_reset();
 			new_touch(x, y);
 		}
-	
+	}
 	return false;
-}
+} 
 
 void s2w_coord_dump(int c_x, int c_y)
 {
@@ -1677,7 +1661,7 @@ void direction_vector_calc(void) {
 
 int s2w_coord_nature(void)
 {
-	int i = 0;
+	
 	/*pr_info("%s:Recieved count - %d\n",__func__,s2w_touch_count);
 	pr_info("%s:max_x-%d\n",__func__,max_x);
 	pr_info("%s:max_y-%d\n",__func__,max_y);
@@ -2102,20 +2086,9 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 				}
 			}
 		}
-		if (mm_switch) {
-                           touch_cnt = true;
-			   if (detect_musicmode(be16_to_cpu(ts->xy_data.tch1.x),
-						be16_to_cpu(ts->xy_data.tch1.y)) == true) {
-	
-			   	    	//pr_info("%s: music_mode: power on\n", __func__);
-					    doubletap2wake_pwrtrigger();
-					   
-				}
-					
-		}
-               if (s2w_switch) {
-                           //pr_info("%s: testing s2w\n", __func__);
-                           touch_cnt = true;
+        if (s2w_switch) {
+               //pr_info("%s: testing s2w\n", __func__);
+               touch_cnt = true;
 			   if (detect_sweep2wake(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y), ts->xy_data.touch12_id) == true) {
 			   	    	                   //pr_info("%s: sweep2wake: power on\n", __func__);
