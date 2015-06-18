@@ -1598,7 +1598,7 @@ static bool detect_musicmode(int x, int y)
 
 void s2w_coord_dump(int c_x, int c_y)
 {
-	pr_info("%s:x-%d, y-%d\n",__func__,c_x,c_y);
+	//pr_info("%s:x-%d, y-%d\n",__func__,c_x,c_y);
 	if(s2w_coord_count == 0) {
 		x = c_x;
 		y = c_y;
@@ -1634,17 +1634,6 @@ void s2w_coord_reset(void)
 	min_y = 0;
 }
 
-int compare_four(int a, int b, int c, int d) {
-      int avg = (a + b + c + d)/4;
-      int max = abs(avg - a);
-      if (abs(avg - b) > max)
-        max = abs(avg - b);
-      if (abs(avg - c) > max)
-        max = abs(avg - c);
-      if (abs(avg - d) > max)
-        max = abs(avg - d);
-      return max;
-}
 
 void direction_vector_calc(void) {
 	int tot = 0;
@@ -1689,55 +1678,55 @@ void direction_vector_calc(void) {
 int s2w_coord_nature(void)
 {
 	int i = 0;
-	pr_info("%s:Recieved count - %d\n",__func__,s2w_touch_count);
+	/*pr_info("%s:Recieved count - %d\n",__func__,s2w_touch_count);
 	pr_info("%s:max_x-%d\n",__func__,max_x);
 	pr_info("%s:max_y-%d\n",__func__,max_y);
 	pr_info("%s:min_x-%d\n",__func__,min_x);
-	pr_info("%s:min_y-%d\n",__func__,min_y);
+	pr_info("%s:min_y-%d\n",__func__,min_y);*/
 	/*This function detects the nature of sweep input, and on the basis of following, it returns -
 	1 - sweep right
 	2 - sweep left
 	3 - sweep up
 	4 - sweep down*/
-	pr_info("%s:multiple_dir - %d\n",__func__,multiple_dir);
-	for(i = 0; i < 4; i++ )
-		pr_info("%s:dir[%d] - %d\n",__func__,i,dir[i]);
+	//pr_info("%s:multiple_dir - %d\n",__func__,multiple_dir);
+	/*for(i = 0; i < 4; i++ )
+		pr_info("%s:dir[%d] - %d\n",__func__,i,dir[i]);*/
 	if (abs(x - x_first) > 150 && abs(y - y_first) < 50 && abs(max_y - y) < 50) {
            if(dir[0] > s2w_touch_count/2) {
-           	  pr_info("%s:Sweep right\n",__func__);
+           	  //pr_info("%s:Sweep right\n",__func__);
            	  return 1;
            	}
            	else if(dir[1] > s2w_touch_count/2) {
-           	  pr_info("%s:Sweep left\n",__func__);
+           	  //pr_info("%s:Sweep left\n",__func__);
            	  return 2;
            	}
 	}
 	if (abs(y - y_first) > 150 && abs(x - x_first) < 50 && abs(max_x - x) < 50) {
            if(dir[2] > s2w_touch_count/2) {
-           	  pr_info("%s:Sweep up\n",__func__);
+           	  //pr_info("%s:Sweep up\n",__func__);
            	  return 3;
            	}
            	else if(dir[3] > s2w_touch_count/2) {
-           	  pr_info("%s:Sweep down\n",__func__);
+           	  //pr_info("%s:Sweep down\n",__func__);
            	  return 4;
            	}
 	}
 	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir == s2w_touch_count - 1)) {
 		if(x > x_first) {
-			pr_info("%s:Forward diagonal swipe!!\n",__func__);
+			//pr_info("%s:Forward diagonal swipe!!\n",__func__);
            	return 5;
 		}//forward diagonal swipe!!
 		else if(x < x_first) {
-			pr_info("%s:Backward diagonal swipe!!\n",__func__);
+			//pr_info("%s:Backward diagonal swipe!!\n",__func__);
            	return 6;
 		}//backward diagonal swipe!!
 	}
 	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir < s2w_touch_count - 1) && dir[0] > s2w_touch_count/3 && dir[3] > s2w_touch_count/3) {
-		pr_info("%s:Draw 'L'\n",__func__);
+		//pr_info("%s:Draw 'L'\n",__func__);
            	  return 7;
 	}
 	if(abs(x - x_first) > 80 && abs(y - y_first) < 50 && dir[2] > s2w_touch_count/3 && dir[3] > s2w_touch_count/3 && (multiple_dir < s2w_touch_count - 1)) {
-		pr_info("%s:Draw 'V'\n",__func__);
+		//pr_info("%s:Draw 'V'\n",__func__);
            	  return 8;
 	}
 	
@@ -2108,7 +2097,7 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 			} else {
 				if (detect_doubletap2wake(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y)) == true) {
-					pr_info("%s: d2w: power on\n", __func__);
+					//pr_info("%s: d2w: power on\n", __func__);
 					doubletap2wake_pwrtrigger();
 				}
 			}
@@ -2118,7 +2107,7 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 			   if (detect_musicmode(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y)) == true) {
 	
-			   	    	pr_info("%s: music_mode: power on\n", __func__);
+			   	    	//pr_info("%s: music_mode: power on\n", __func__);
 					    doubletap2wake_pwrtrigger();
 					   
 				}
@@ -2129,7 +2118,7 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
                            touch_cnt = true;
 			   if (detect_sweep2wake(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y), ts->xy_data.touch12_id) == true) {
-			   	    	                   pr_info("%s: sweep2wake: power on\n", __func__);
+			   	    	                   //pr_info("%s: sweep2wake: power on\n", __func__);
 					                       doubletap2wake_pwrtrigger();
                                      
 					   
