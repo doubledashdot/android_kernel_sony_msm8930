@@ -1628,6 +1628,10 @@ void s2w_coord_reset(void)
 		dir[i] = 0;
 	s2w_coord_count = 0;
 	s2w_touch_count = 0;
+	max_x = 0;
+	min_x = 0;
+	max_y = 0;
+	min_y = 0;
 }
 
 int compare_four(int a, int b, int c, int d) {
@@ -1674,6 +1678,11 @@ void direction_vector_calc(void) {
       //To determine min deviation in y coord.
       if(y < min_y)
       	min_y = y;
+  } else {
+  	min_y = y;
+  	min_x = x;
+  	max_x = x;
+  	max_y = y;
   }
 }
 
@@ -1681,6 +1690,10 @@ int s2w_coord_nature(void)
 {
 	int i = 0;
 	pr_info("%s:Recieved count - %d\n",__func__,s2w_touch_count);
+	pr_info("%s:max_x-%d\n",__func__,max_x);
+	pr_info("%s:max_y-%d\n",__func__,max_y);
+	pr_info("%s:min_x-%d\n",__func__,min_x);
+	pr_info("%s:min_y-%d\n",__func__,min_y);
 	/*This function detects the nature of sweep input, and on the basis of following, it returns -
 	1 - sweep right
 	2 - sweep left
@@ -1689,27 +1702,27 @@ int s2w_coord_nature(void)
 	pr_info("%s:multiple_dir - %d\n",__func__,multiple_dir);
 	for(i = 0; i < 4; i++ )
 		pr_info("%s:dir[%d] - %d\n",__func__,i,dir[i]);
-	if (abs(x - x_first) > 150 && abs(y - y_first) < 50) {
-           if(dir[0] > 1 && abs(max_y - y) < 50 && abs(min_y - y) < 50 && abs(max_x - x) < 50 && abs(min_x - x) < 50) {
+	if (abs(x - x_first) > 150 && abs(y - y_first) < 50 && abs(max_y - y) < 50) {
+           if(dir[0] > s2w_touch_count/2) {
            	  pr_info("%s:Sweep right\n",__func__);
            	  return 1;
            	}
-           	else if(dir[1] > 1 && abs(max_y - y) < 50 && abs(min_y - y) < 50 && abs(max_x - x) < 50 && abs(min_x - x) < 50) {
+           	else if(dir[1] > s2w_touch_count/2) {
            	  pr_info("%s:Sweep left\n",__func__);
            	  return 2;
            	}
 	}
-	if (abs(y - y_first) > 150 && abs(x - x_first) < 50) {
-           if(dir[2] > 1 && abs(max_x - x) < 50 && abs(min_x - x) < 50 && abs(max_y - y) < 50 && abs(min_y - y) < 50) {
+	if (abs(y - y_first) > 150 && abs(x - x_first) < 50 && abs(max_x - x) < 50) {
+           if(dir[2] > s2w_touch_count/2) {
            	  pr_info("%s:Sweep up\n",__func__);
            	  return 3;
            	}
-           	else if(dir[3] > 1 && abs(max_x - x) < 50 && abs(min_x - x) < 50 && abs(max_y - y) < 50 && abs(min_y - y) < 50) {
+           	else if(dir[3] > s2w_touch_count/2) {
            	  pr_info("%s:Sweep down\n",__func__);
            	  return 4;
            	}
 	}
-	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir >= s2w_touch_count - 2)) {
+	if(abs(x - x_first) > 100 && abs(y - y_first) > 100 && (multiple_dir == s2w_touch_count - 1)) {
 		if(x > x_first) {
 			pr_info("%s:Forward diagonal swipe!!\n",__func__);
            	return 5;
@@ -1723,7 +1736,7 @@ int s2w_coord_nature(void)
 		pr_info("%s:Draw 'L'\n",__func__);
            	  return 7;
 	}
-	if(abs(x - x_first) > 80 && abs(y - y_first) < 50 && (max_y >= y + 50) && (multiple_dir < s2w_touch_count - 1)) {
+	if(abs(x - x_first) > 80 && abs(y - y_first) < 50 && dir[2] > s2w_touch_count/3 && dir[3] > s2w_touch_count/3 && (multiple_dir < s2w_touch_count - 1)) {
 		pr_info("%s:Draw 'V'\n",__func__);
            	  return 8;
 	}
