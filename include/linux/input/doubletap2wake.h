@@ -1,7 +1,7 @@
 /*
  * include/linux/input/doubletap2wake.h
  *
- * Copyright (c) 2013, Dennis Rassmann <showp1984@gmail.com>
+ * Copyright (c) 2015, Vineeth Raj <contact.twn@openmailbox.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +21,7 @@
 #ifndef _LINUX_DOUBLETAP2WAKE_H
 #define _LINUX_DOUBLETAP2WAKE_H
 
-extern bool dt2w_scr_suspended;
-extern int dt2w_switch;
-extern bool dt2w_scr_suspended;
+extern void doubletap2wake_setdev(struct input_dev *);
 
-#endif	/* _LINUX_DOUBLETAP2WAKE_H */
+#endif /* _LINUX_DOUBLETAP2WAKE_H */
+

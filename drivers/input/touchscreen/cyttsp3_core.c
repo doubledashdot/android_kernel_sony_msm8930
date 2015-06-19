@@ -9,6 +9,9 @@
  *
  * Copyright (C) 2009-2012 Cypress Semiconductor, Inc.
  * Copyright (C) 2010-2011 Motorola Mobility, Inc.
+ * Copyright (C) 2015 Vineeth Raj <contact.twn@openmailbox.org>
+ * Copyright (C) 2015 Avinaba Dalal <d97.avinaba@gmail.com>
+ *
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -43,6 +46,8 @@
 #include <linux/export.h>
 #include <linux/module.h>
 #endif
+
+#include <linux/input/doubletap2wake.h>
 
 /* helpers */
 #define GET_NUM_TOUCHES(x)          ((x) & 0x0F)
@@ -1503,14 +1508,21 @@ static void _cyttsp_get_tracks(struct cyttsp *ts, int cur_tch,
 
 #ifdef CYTTSP3_D2W
 
-void doubletap2wake_setdev(struct input_dev * input_device) {
+extern void doubletap2wake_setdev(struct input_dev * input_device) {
+ doubletap2wake_pwrdev = input_device;
+ printk("set doubletap2wake_pwrdev: %s\n", doubletap2wake_pwrdev->name);
+}
+EXPORT_SYMBOL_GPL(doubletap2wake_setdev);
+
+
+/*void doubletap2wake_setdev(struct input_dev * input_device) {
       doubletap2wake_pwrdev = input_device;
       	input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_POWER);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PLAYPAUSE);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PREVIOUSSONG);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
       printk("set doubletap2wake_pwrdev: %s\n", doubletap2wake_pwrdev->name);
-}
+}*/
 
 static void doubletap2wake_presspwr(struct work_struct * doubletap2wake_presspwr_work) {
 	if (!mutex_trylock(&pwrkeyworklock))
@@ -2090,7 +2102,7 @@ static int _cyttsp_xy_worker(struct cyttsp *ts)
 			} else {
 				if (detect_doubletap2wake(be16_to_cpu(ts->xy_data.tch1.x),
 						be16_to_cpu(ts->xy_data.tch1.y)) == true) {
-					//pr_info("%s: d2w: power on\n", __func__);
+					pr_info("%s: d2w: power on\n", __func__);
 					doubletap2wake_pwrtrigger();
 				}
 			}
@@ -5619,11 +5631,7 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	}
 
 /*#ifdef CYTTSP3_D2W
-	doubletap2wake_pwrdev = input_allocate_device();
-	if (!doubletap2wake_pwrdev) {
-		pr_err("Can't allocate suspend autotest power button\n");
-		goto error_init;
-	}
+	doubletap2wake_pwrdev = input_device;
 #endif*/
 
 	ts->input = input_device;
@@ -5633,11 +5641,6 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	input_device->dev.parent = ts->dev;
 	ts->bus_type = bus_ops->dev->bus;
 	INIT_WORK(&ts->cyttsp_resume_startup_work, cyttsp_ts_work_func);
-
-/*#ifdef CYTTSP3_D2W
-	doubletap2wake_pwrdev->name = "dt2w_pwrkey";
-	doubletap2wake_pwrdev->phys = "dt2w_pwrkey/input0";
-#endif*/
 
 #ifdef CONFIG_USE_SENSOR_FOR_ESD      
 	INIT_DELAYED_WORK(&ts->ESD_work, get_bma250_func);
@@ -5667,6 +5670,10 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
 	memset(ts->prv_trk, CY_NTCH, sizeof(ts->prv_trk));
 
 	__set_bit(EV_ABS, input_device->evbit);
+/*#ifdef CYTTSP3_D2W
+      __set_bit(EV_KEY, input_device->evbit);
+      __set_bit(KEY_POWER, input_device->keybit);
+#endif*/
 	set_bit(INPUT_PROP_DIRECT, input_device->propbit); 
 	for (i = 0; i < (ts->platform_data->frmwrk->size / CY_NUM_ABS_VAL);
 		i++) {
@@ -5731,7 +5738,7 @@ void *cyttsp_core_init(struct cyttsp_bus_ops *bus_ops,
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_NEXTSONG);
         input_set_capability(doubletap2wake_pwrdev, EV_KEY, KEY_PHONE);
 #endif*/
-doubletap2wake_setdev(input_device);
+//doubletap2wake_setdev(input_device);
 	/* enable interrupts */
 #ifdef CY_USE_LEVEL_IRQ
 	irq_flags = IRQF_TRIGGER_LOW | IRQF_ONESHOT;

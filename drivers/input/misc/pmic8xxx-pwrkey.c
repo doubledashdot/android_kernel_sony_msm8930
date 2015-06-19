@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 Vineeth Raj <contact.twn@openmailbox.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,11 @@
 
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
+
+#ifdef CONFIG_TOUCHSCREEN_CYTTSP3_D2W
+#include <linux/input/doubletap2wake.h>
+#endif
+
 
 #define PON_CNTL_1 0x1C
 #define PON_CNTL_PULL_UP BIT(7)
@@ -213,6 +219,11 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 
 		goto free_press_irq;
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_CYTTSP3_D2W
+ doubletap2wake_setdev(pwr);
+#endif
+
 
 	device_init_wakeup(&pdev->dev, pdata->wakeup);
 
