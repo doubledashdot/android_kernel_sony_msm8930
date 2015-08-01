@@ -1199,6 +1199,8 @@ source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
 
+source "arch/arm/hotplug/Kconfig"
+
 # Definitions to make life easier
 config ARCH_ACORN
 	bool
@@ -1802,6 +1804,17 @@ config OABI_COMPAT
 	  to execute a legacy ABI binary then the result will be
 	  UNPREDICTABLE (in fact it can be predicted that it won't work
 	  at all). If in doubt say Y.
+
+
+
+config ARM_AUTO_HOTPLUG
+ bool "Auto hotplugging based on scheduler runqueue load for ARM SoCs"
+ depends on HOTPLUG_CPU
+ depends on ARCH_EXYNOS4 || ARCH_TEGRA || ARCH_MSM_SCORPIONMP || \
+ ARCH_MSM_KRAITMP
+ depends on !TEGRA_AUTO_HOTPLUG && !CPU_FREQ_GOV_PEGASUSQ && \
+ !CPU_FREQ_GOV_HOTPLUG && !MSM_MPDEC
+ default y
 
 config ARCH_HAS_HOLES_MEMORYMODEL
 	bool
