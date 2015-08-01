@@ -1,0 +1,6 @@
+config HOTPLUG
+ bool "Cpu hotplug driver"
+ default y
+ help
+ cpu hotplug driver for ARM SOCs
+
