@@ -194,7 +194,7 @@
 #define D2W_FEATHER    50
 #define D2W_TIME       700
 
-int d2w_switch = 0;
+int d2w_switch = 1;
 int s2w_switch = 0; 
 int mm_switch = 0;
 int s2w_right = 0;
@@ -205,6 +205,7 @@ int s2w_fwd_diag = 0;
 int s2w_bck_diag = 0;
 int s2w_l = 0;
 int s2w_v = 0;
+int boot_flag=0;
 int key = KEY_POWER;
 /*s2w_switch possible values
 0 - any direction
@@ -4055,6 +4056,12 @@ static ssize_t d2w_show(struct device *dev,
 	return count;
 }
 
+void boot_flag_check(void) {
+	if(d2w_switch == 0 && mm_switch == 0 && s2w_switch == 0)
+                boot_flag = 0;
+        
+}
+
 static ssize_t d2w_dump(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -4063,6 +4070,7 @@ static ssize_t d2w_dump(struct device *dev,
 	} else if (buf[0] == '1') {
 		d2w_switch = 1;
 	}
+        boot_flag_check();
 
 	return count;
 }
@@ -4087,6 +4095,7 @@ static ssize_t music_mode_dump(struct device *dev,
 	} else if (buf[0] == '1') {
 		mm_switch = 1;
 	}
+        boot_flag_check();
 
 	return count;
 }
@@ -4112,6 +4121,7 @@ static ssize_t s2w_dump(struct device *dev,
 	} else if (buf[0] == '1') {
 		s2w_switch = 1;
 	}
+        boot_flag_check();
 
 	return count;
 }
@@ -5133,6 +5143,7 @@ void cyttsp_early_suspend(struct early_suspend *h)
 	if (d2w_switch || mm_switch || s2w_switch) {
 		//enable_irq(ts->irq);
 		enable_irq_wake(ts->irq);
+                boot_flag = 1;
 	}
 		
 	else
@@ -5151,7 +5162,7 @@ void cyttsp_late_resume(struct early_suspend *h)
 	Printlog("[%s]:\n",__FUNCTION__);
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: LATE RESUME ts=%p\n", __func__, ts);
 #ifdef CYTTSP3_D2W
-	if (d2w_switch || mm_switch || s2w_switch)
+	if ((d2w_switch || mm_switch || s2w_switch) && boot_flag)
 		{
 			disable_irq_wake(ts->irq);
 			//disable_irq(ts->irq);
