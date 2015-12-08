@@ -1479,6 +1479,28 @@ exit_als_cal_ga:
 	return snprintf(buf, PAGE_SIZE,"%d\n", chip->als_inf.ga);
 }
 
+/*For Pocket Mode : Start*/
+
+extern int pocket_mode_prox_disable() {
+	taos_als_enable(chip,0);
+	pr_info("pocket_mode: Disabling prox");
+	return 0;
+}
+
+extern int pocket_mode_prox_detected() {
+	int pocket_enabled;
+	struct tsl2772_chip *pocket_mode_chip = chip;
+	taos_prox_enable(pocket_mode_chip,1);
+	taos_check_and_report(pocket_mode_chip);//report immediately
+	pr_info("pocket_mode: Enabling prox");
+	pocket_enabled = pocket_mode_chip->prx_inf.detected;
+	taos_prox_enable(pocket_mode_chip,0);
+	return pocket_enabled;
+	
+}
+
+/*For Pocket Mode : End*/
+
 static ssize_t taos_device_als_ch0(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -1541,6 +1563,7 @@ static ssize_t taos_lux_table_store(struct device *dev,
 	mutex_unlock(&chip->lock);*/
 	return size;
 }
+
 
 static ssize_t TSL2772_delay_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
