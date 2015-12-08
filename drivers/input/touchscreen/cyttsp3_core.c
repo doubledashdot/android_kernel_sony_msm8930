@@ -5052,6 +5052,7 @@ int cyttsp_suspend(void *handle)
 	u8 sleep = CY_DEEP_SLEEP_MODE;
 	cyttsp_dbg(ts, CY_DBG_LVL_3, "%s: Suspending...\n", __func__);
 	Printlog("[%s]\n",__FUNCTION__);
+	pr_info("pocket_mode_debug: cyttsp suspend called!");
 
 #if 1 
     #ifdef CONFIG_USE_SENSOR_FOR_ESD 	
