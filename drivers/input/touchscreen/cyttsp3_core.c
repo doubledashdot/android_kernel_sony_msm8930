@@ -5143,7 +5143,7 @@ void cyttsp_early_suspend(struct early_suspend *h)
 #ifdef CYTTSP3_D2W
 	if (d2w_switch || mm_switch || s2w_switch) {
 		//enable_irq(ts->irq);
-		if(!pocket_mode_prox_detected()) {
+		if(!pocket_mode_prox_detected(0)) {
 			pr_info("d2w: Prox uncovered! Enabling TS");
 			enable_irq_wake(ts->irq);
                 	boot_flag = 1;
@@ -5169,6 +5169,7 @@ void cyttsp_late_resume(struct early_suspend *h)
 	if ((d2w_switch || mm_switch || s2w_switch) && boot_flag)
 		{
 			disable_irq_wake(ts->irq);
+			pocket_mode_prox_detected(1); //Turn off prox
 			//disable_irq(ts->irq);
 		}
 	else
