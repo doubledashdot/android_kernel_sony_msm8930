@@ -48,6 +48,7 @@
 #endif
 
 #include <linux/input/doubletap2wake.h>
+#include <linux/pocket_mode.h>
 
 /* helpers */
 #define GET_NUM_TOUCHES(x)          ((x) & 0x0F)
@@ -5142,8 +5143,11 @@ void cyttsp_early_suspend(struct early_suspend *h)
 #ifdef CYTTSP3_D2W
 	if (d2w_switch || mm_switch || s2w_switch) {
 		//enable_irq(ts->irq);
-		enable_irq_wake(ts->irq);
-                boot_flag = 1;
+		if(!pocket_mode_prox_detected()) {
+			pr_info("d2w: Prox uncovered! Enabling TS");
+			enable_irq_wake(ts->irq);
+                	boot_flag = 1;
+		} else { pr_info("d2w: Prox covered! Not Enabling TS"); }
 	}
 		
 	else
