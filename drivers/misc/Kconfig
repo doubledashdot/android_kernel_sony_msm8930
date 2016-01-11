@@ -680,6 +680,11 @@ config BU52031NVX_POUCHDETECT
 	depends on BU52031NVX
 	help
 	  depends on BU52031NVX
+	  
+config POCKET_MODE
+	tristate "Generic unit to handle most of the pocket_mode related functions."
+	help
+	  Generic unit to handle most of the pocket_mode related functions.	  
 
 # 20130602, BugID3067: add NFC feature and PN65O checking to BSP1744
 config NXP_NFC_PN65N
