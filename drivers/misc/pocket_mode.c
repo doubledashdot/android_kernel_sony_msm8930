@@ -22,13 +22,12 @@
 #include <linux/sysfs.h>
 #include <linux/kernel.h>
 
-
 #define UNIT_MAJOR_VERSION 		1
 #define UNIT_MINOR_VERSION 		0
 
 #define MASTER_SWITCH			1		//enable pocket_mode by default
 
-int pocket_mode_switch = MASTER_SWITCH;
+pocket_mode_switch = MASTER_SWITCH;
 
 static ssize_t pocket_mode_switch_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -39,7 +38,7 @@ static ssize_t pocket_mode_switch_store(struct kobject *kobj, struct kobj_attrib
 {
 	int new_switch;
 	sscanf(buf, "%d", &new_switch);
-	if(new_switch != 0 || new_switch != 1)
+	if(new_switch != 0 && new_switch != 1)
 		pocket_mode_switch = MASTER_SWITCH;
 	else
 		pocket_mode_switch = new_switch;
@@ -58,7 +57,7 @@ static struct kobj_attribute pocket_mode_ver_attribute =
 		pocket_mode_version_show, NULL);
 
 static struct kobj_attribute pocket_mode_switch_attribute =
-	__ATTR(custom_current,
+	__ATTR(pocket_mode,
 		0666,
 		pocket_mode_switch_show,
 		pocket_mode_switch_store);

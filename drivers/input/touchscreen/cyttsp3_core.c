@@ -5144,11 +5144,18 @@ void cyttsp_early_suspend(struct early_suspend *h)
 #ifdef CYTTSP3_D2W
 	if (d2w_switch || mm_switch || s2w_switch) {
 		//enable_irq(ts->irq);
-		if(!pocket_mode_prox_detected(0)) {
-			pr_info("d2w: Prox uncovered! Enabling TS");
+		if(pocket_mode_switch) {
+			pr_info("d2w: Pocket Mode is on!");
+			if(!pocket_mode_prox_detected(0)) {
+				pr_info("d2w: Prox uncovered! Enabling TS");
+				enable_irq_wake(ts->irq);
+                		boot_flag = 1;
+			} else { pr_info("d2w: Prox covered! Not Enabling TS"); }
+		} else {
+			pr_info("d2w: Pocket Mode is off!");
 			enable_irq_wake(ts->irq);
-                	boot_flag = 1;
-		} else { pr_info("d2w: Prox covered! Not Enabling TS"); }
+                	boot_flag = 1;	
+		}
 	}
 		
 	else
