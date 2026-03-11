@@ -77,9 +77,9 @@ bool getenforce(void)
 		return false;
 	}
 #else
-	if (selinux_disabled) {
+#ifdef CONFIG_SECURITY_SELINUX_DISABLE
 		return false;
-	}
+#endif
 #endif // KSU_COMPAT_USE_SELINUX_STATE
 #endif // CONFIG_SECURITY_SELINUX_DISABLE
 
