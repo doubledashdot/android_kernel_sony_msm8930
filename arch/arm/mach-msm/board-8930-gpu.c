@@ -45,7 +45,7 @@ static struct msm_bus_vectors grp3d_nominal_vectors[] = {
 		.src = MSM_BUS_MASTER_GRAPHICS_3D,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 0,
-		.ib = KGSL_CONVERT_TO_MBPS(2656),
+		.ib = KGSL_CONVERT_TO_MBPS(4264),
 	},
 };
 
@@ -54,7 +54,7 @@ static struct msm_bus_vectors grp3d_max_vectors[] = {
 		.src = MSM_BUS_MASTER_GRAPHICS_3D,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab = 0,
-		.ib = KGSL_CONVERT_TO_MBPS(4264),
+		.ib = KGSL_CONVERT_TO_MBPS(5290),
 	},
 };
 
@@ -122,6 +122,11 @@ static struct kgsl_device_iommu_data kgsl_3d0_iommu_data[] = {
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
+ 			.gpu_freq = 533333000,
+ 			.bus_freq = 5,
+ 			.io_fraction = 0,
+ 		},
+		{
 			.gpu_freq = 500000000,
 			.bus_freq = 4,
 			.io_fraction = 0,
@@ -147,7 +152,7 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		},
 	},
 	.init_level = 1,
-	.num_levels = 5,
+	.num_levels = 6,
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/12,
 	.strtstp_sleepwake = false,
@@ -178,7 +183,7 @@ void __init msm8930_init_gpu(void)
 	if (cpu_is_msm8930aa())
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
 	else if (cpu_is_msm8930ab() || true) {
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 500000000;
+		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 533333000;
 		grp3d_max_vectors[0].ib = KGSL_CONVERT_TO_MBPS(4800);
 	}
 
