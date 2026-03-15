@@ -2715,7 +2715,7 @@ static struct msm_thermal_data msm_thermal_pdata = {
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,
 #ifdef CONFIG_INTELLI_THERMAL
-        .freq_control_mask = 0xf,
+        .core_control_mask = 0xf,
 #if 1
         .core_limit_temp_degC = 90,
 #else
