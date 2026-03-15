@@ -703,6 +703,7 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+define_one_global_rw(vdd_levels);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -718,6 +719,16 @@ static struct attribute *default_attrs[] = {
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
 	NULL
+};
+
+static struct attribute *vddtbl_attrs[] = {
+        &vdd_levels.attr,
+        NULL
+};
+
+static struct attribute_group vddtbl_attr_group = {
+        .attrs = vddtbl_attrs,
+        .name = "vdd_table",
 };
 
 struct kobject *cpufreq_global_kobject;
@@ -2056,6 +2067,7 @@ EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 static int __init cpufreq_core_init(void)
 {
 	int cpu;
+	int rc;
 
 	if (cpufreq_disabled())
 		return -ENODEV;
@@ -2068,7 +2080,7 @@ static int __init cpufreq_core_init(void)
 	cpufreq_global_kobject = kobject_create_and_add("cpufreq", &cpu_subsys.dev_root->kobj);
 	BUG_ON(!cpufreq_global_kobject);
 	register_syscore_ops(&cpufreq_syscore_ops);
-
+	rc = sysfs_create_group(cpufreq_global_kobject, &vddtbl_attr_group);
 	return 0;
 }
 core_initcall(cpufreq_core_init);
