@@ -84,3 +84,5 @@ GTAGS
 *.orig
 *~
 \#*#
+zip/rel/
+kernel/hz.bc
