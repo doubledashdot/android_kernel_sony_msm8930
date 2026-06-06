@@ -1,0 +1,31 @@
+#!/sbin/busybox sh
+
+exec > /dev/null 2>&1
+
+#
+# Optimized mounts! 
+#
+  for k in $(/sbin/busybox mount | /sbin/busybox grep relatime | /sbin/busybox cut -d " " -f3)
+  do
+        sync
+        /sbin/busybox mount -o remount,noatime $k
+  done
+
+  for k in $(/sbin/busybox mount | /sbin/busybox grep ext4 | /sbin/busybox cut -d " " -f3)
+  do
+        sync
+        /sbin/busybox mount -o remount,commit=15 $k
+  done
+  
+  # Turn off debugging for certain modules
+  echo "0" > /sys/module/wakelock/parameters/debug_mask
+  echo "0" > /sys/module/userwakelock/parameters/debug_mask
+  echo "0" > /sys/module/earlysuspend/parameters/debug_mask
+  echo "0" > /sys/module/alarm/parameters/debug_mask
+  echo "0" > /sys/module/alarm_dev/parameters/debug_mask
+  echo "0" > /sys/module/binder/parameters/debug_mask
+  echo "0" > /sys/module/lowmemorykiller/parameters/debug_level
+  
+  # Set max boot freq
+  echo "1026000" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+  echo "1026000" > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq
